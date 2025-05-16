@@ -1,167 +1,111 @@
-// Prisma schema for BNIN Recipe App
+// prisma/schema.prisma
+// This is your Prisma schema file  
+generator client {   
+  provider = "prisma-client-js" 
+}  
 
-generator client {
-  provider = "prisma-client-js"
+datasource db {   
+  provider = "sqlite"   
+  url      = env("DATABASE_URL") 
+}  
+
+// Update your existing User model with the NextAuth fields
+model User {   
+  id             String           @id @default(cuid())   
+  name           String?   
+  email          String           @unique   
+  // Add these fields for NextAuth
+  emailVerified  DateTime?
+  password       String?
+  image          String?
+  accounts       Account[]
+  sessions       Session[]
+  // Keep your existing relations
+  favorites      FavoriteRecipe[]   
+  createdRecipes Recipe[] 
+}  
+
+model Recipe {   
+  id                String           @id @default(cuid())   
+  externalId        Int?             // For Spoonacular API recipes   
+  title             String   
+  description       String?   
+  imageUrl          String?   
+  prepTime          Int              // In minutes   
+  cookTime          Int              // In minutes   
+  servings          Int              @default(2)   
+  ingredients       Ingredient[]   
+  instructions      Instruction[]   
+  difficulty        String           @default("Medium") // Easy, Medium, Hard   
+  cuisineType       String?   
+  createdAt         DateTime         @default(now())   
+  updatedAt         DateTime         @updatedAt   
+  author            User?            @relation(fields: [authorId], references: [id])   
+  authorId          String?   
+  favoriteCount     Int              @default(0)   
+  favoriteRelations FavoriteRecipe[] 
+}  
+
+model Ingredient {   
+  id       String  @id @default(cuid())   
+  name     String   
+  amount   Float   
+  unit     String?   
+  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)   
+  recipeId String 
+}  
+
+model Instruction {   
+  id       String @id @default(cuid())   
+  stepNo   Int   
+  text     String   
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)   
+  recipeId String 
+}  
+
+model FavoriteRecipe {   
+  id        String   @id @default(cuid())   
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)   
+  userId    String   
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)   
+  recipeId  String   
+  createdAt DateTime @default(now())    
+  
+  @@unique([userId, recipeId]) 
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+// Add these models for NextAuth (modified for SQLite)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
 }
 
-model User {
-  id               String              @id @default(uuid()) @db.Uuid
-  username         String              @unique
-  email            String              @unique
-  passwordHash     String
-  profileImage     String?
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @default(now()) @updatedAt @map("updated_at")
-  favorites        UserFavorite[]
-  recipeHistory    UserRecipeHistory[]
-  preferences      UserPreference?
-  recommendationLogs RecommendationLog[]
-
-  @@map("users")
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Ingredient {
-  id                 String                   @id @default(uuid()) @db.Uuid
-  name               String                   @unique
-  category           String
-  imageUrl           String?                  @map("image_url")
-  description        String?
-  createdAt          DateTime                 @default(now()) @map("created_at")
-  updatedAt          DateTime                 @default(now()) @updatedAt @map("updated_at")
-  recipeIngredients  RecipeIngredient[]
-  compatibleWith     IngredientCompatibility[] @relation("compatible_with")
-  compatibleIngredients IngredientCompatibility[] @relation("ingredient")
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
 
-  @@map("ingredients")
-}
-
-model IngredientCompatibility {
-  id                 String     @id @default(uuid()) @db.Uuid
-  ingredientId       String     @map("ingredient_id") @db.Uuid
-  compatibleWithId   String     @map("compatible_with_id") @db.Uuid
-  compatibilityScore Int        @map("compatibility_score")
-  ingredient         Ingredient @relation("ingredient", fields: [ingredientId], references: [id])
-  compatibleWith     Ingredient @relation("compatible_with", fields: [compatibleWithId], references: [id])
-
-  @@unique([ingredientId, compatibleWithId])
-  @@map("ingredient_compatibility")
-}
-
-model Mood {
-  id            String       @id @default(uuid()) @db.Uuid
-  name          String       @unique
-  description   String?
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @default(now()) @updatedAt @map("updated_at")
-  recipeMoods   RecipeMood[]
-  recommendationLogs RecommendationLog[]
-
-  @@map("moods")
-}
-
-model Recipe {
-  id                String              @id @default(uuid()) @db.Uuid
-  name              String
-  description       String?
-  instructions      String[]
-  prepTime          Int                 @map("prep_time")
-  cookTime          Int                 @map("cook_time")
-  difficulty        String
-  servings          Int
-  imageUrl          String?             @map("image_url")
-  videoUrl          String?             @map("video_url")
-  createdAt         DateTime            @default(now()) @map("created_at")
-  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at")
-  ingredients       RecipeIngredient[]
-  moods             RecipeMood[]
-  userFavorites     UserFavorite[]
-  userHistory       UserRecipeHistory[]
-  recommendationLogs RecommendationLog[]
-
-  @@map("recipes")
-}
-
-model RecipeIngredient {
-  id          String     @id @default(uuid()) @db.Uuid
-  recipeId    String     @map("recipe_id") @db.Uuid
-  ingredientId String     @map("ingredient_id") @db.Uuid
-  quantity    String
-  unit        String?
-  recipe      Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  ingredient  Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-
-  @@unique([recipeId, ingredientId])
-  @@map("recipe_ingredients")
-}
-
-model RecipeMood {
-  id             String @id @default(uuid()) @db.Uuid
-  recipeId       String @map("recipe_id") @db.Uuid
-  moodId         String @map("mood_id") @db.Uuid
-  relevanceScore Int    @map("relevance_score")
-  recipe         Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  mood           Mood   @relation(fields: [moodId], references: [id], onDelete: Cascade)
-
-  @@unique([recipeId, moodId])
-  @@map("recipe_moods")
-}
-
-model UserFavorite {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  recipeId  String   @map("recipe_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, recipeId])
-  @@map("user_favorites")
-}
-
-model UserRecipeHistory {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  recipeId  String   @map("recipe_id") @db.Uuid
-  viewedAt  DateTime @default(now()) @map("viewed_at")
-  rating    Int?
-  completed Boolean  @default(false)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  @@map("user_recipe_history")
-}
-
-model UserPreference {
-  id                 String   @id @default(uuid()) @db.Uuid
-  userId             String   @unique @map("user_id") @db.Uuid
-  preferredIngredients String[] @map("preferred_ingredients")
-  dislikedIngredients String[] @map("disliked_ingredients")
-  allergies          String[]
-  dietaryRestrictions String[] @map("dietary_restrictions")
-  preferredMoods     String[] @map("preferred_moods")
-  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("user_preferences")
-}
-
-model RecommendationLog {
-  id              String   @id @default(uuid()) @db.Uuid
-  userId          String?  @map("user_id") @db.Uuid
-  recipeId        String?  @map("recipe_id") @db.Uuid
-  inputIngredients String[] @map("input_ingredients")
-  inputMoodId     String?  @map("input_mood") @db.Uuid
-  confidenceScore Float    @map("confidence_score")
-  userAccepted    Boolean? @map("user_accepted")
-  recommendedAt   DateTime @default(now()) @map("recommended_at")
-  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  recipe          Recipe?  @relation(fields: [recipeId], references: [id], onDelete: SetNull)
-  mood            Mood?    @relation(fields: [inputMoodId], references: [id], onDelete: SetNull)
-
-  @@map("recommendation_logs")
+  @@unique([identifier, token])
 }

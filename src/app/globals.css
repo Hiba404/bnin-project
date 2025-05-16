@@ -1,11 +1,12 @@
+/* Add this to your globals.css */
 @import "tailwindcss";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fffbeb; /* amber-50 */
+  --foreground: #92400e; /* amber-800 */
   
   /* Move inline theme variables to root */
   --color-background: var(--background);
@@ -16,13 +17,69 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #78350f; /* amber-900 */
+    --foreground: #fef3c7; /* amber-100 */
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Nunito', Arial, Helvetica, sans-serif;
+}
+
+/* Illustration-style components */
+.card-with-illustrations {
+  position: relative;
+  overflow: hidden;
+  border: 2px solid #fcd34d; /* amber-300 */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Responsive layout styles */
+.container {
+  max-width: 100%;
+  padding: 1rem;
+  margin: 0 auto;
+}
+
+/* Desktop styles */
+@media (min-width: 768px) {
+  .container {
+    max-width: 1200px;
+    padding: 2rem;
+  }
+  
+  /* Main sections layout for desktop */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+  
+  /* Recipe recommendations layout for desktop */
+  .recommendations-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+/* Decorative elements */
+.food-emoji-decoration {
+  position: absolute;
+  font-size: 2rem;
+  opacity: 0.2;
+  z-index: 0;
+}
+
+/* Custom animated elements */
+@keyframes float {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(5deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+.float-animation {
+  animation: float 6s ease-in-out infinite;
 }

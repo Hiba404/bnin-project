@@ -1,6 +1,7 @@
+// src/components/BninApp.tsx
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useBnin } from '@/context/BninContext';
 import HomeView from './views/HomeView';
 import MyFridgeView from './views/MyFridgeView';
@@ -8,24 +9,22 @@ import MoodBiteView from './views/MoodBiteView';
 import RecipeResultsView from './views/RecipeResultsView';
 import RecipeDetailView from './views/RecipeDetailView';
 
-// Define TypeScript interface for the BninContext
-interface BninContextValue {
-  currentView: string;
-  navigate: (view: string) => void;
-  isLoading: boolean;
-}
-
 /**
  * Main application component that handles view routing
  */
 const BninApp: React.FC = () => {
-  const { currentView, navigate, isLoading } = useBnin() as unknown as BninContextValue;
+  const { currentView, navigate, isLoading } = useBnin();
+
+  // Debug logging
+  useEffect(() => {
+    console.log("BninApp rendered with currentView:", currentView);
+  }, [currentView]);
 
   // Loading spinner with proper accessibility
   const renderLoadingSpinner = () => (
     <div className="flex justify-center items-center min-h-screen" role="status">
       <div 
-        className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"
+        className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"
         aria-label="Loading content"
       ></div>
       <span className="sr-only">Loading...</span>
@@ -37,6 +36,8 @@ const BninApp: React.FC = () => {
     if (isLoading) {
       return renderLoadingSpinner();
     }
+
+    console.log(`Rendering view for: ${currentView}`);
 
     switch (currentView) {
       case 'home':
@@ -50,17 +51,27 @@ const BninApp: React.FC = () => {
       case 'recipeDetail':
         return <RecipeDetailView navigate={navigate} />;
       default:
+        console.log("Default case - rendering HomeView");
         return <HomeView navigate={navigate} />;
     }
   };
 
   return (
     <div 
-      className="bg-gradient-to-br from-amber-50 to-orange-100 min-h-screen font-sans"
+      className="bg-gradient-to-br from-amber-50 to-amber-100 min-h-screen font-sans"
       role="application"
       aria-label="BNIN Recipe App"
     >
-      {renderView()}
+      {/* Debug view indicator (only in development) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed top-0 right-0 bg-black bg-opacity-50 text-white p-2 text-xs z-50">
+          Current View: {currentView}
+        </div>
+      )}
+
+      <div className="container mx-auto px-4 md:px-6 lg:px-8 py-4 md:py-6">
+        {renderView()}
+      </div>
     </div>
   );
 };

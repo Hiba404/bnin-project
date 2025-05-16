@@ -1,336 +1,230 @@
+// BninContext.tsx - FIXED
+'use client';
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
-// Define interfaces for the types used in the context
-interface Ingredient {
+// Define TypeScript interfaces
+export interface Ingredient {
   id: string;
   name: string;
   category: string;
-  imageUrl: string | null;
-  description: string | null;
+  emoji: string;
+  imageUrl?: string; // Optional fallback for ingredients without suitable emojis
 }
 
-interface Mood {
+export interface Mood {
   id: string;
   name: string;
-  description: string | null;
+  color: string;
 }
 
-interface Recipe {
+export interface Recipe {
   id: string;
   name: string;
-  description: string | null;
-  instructions: string[];
-  prepTime: number;
-  cookTime: number;
+  description: string;
+  imageUrl: string;
+  videoUrl?: string;
+  prepTime: string;
+  cookTime: string;
   difficulty: string;
   servings: number;
-  imageUrl: string | null;
-  videoUrl: string | null;
-  ingredients?: {
+  ingredients: {
     id: string;
+    name: string;
     quantity: string;
     unit: string;
-    ingredient: Ingredient;
   }[];
-  moods?: {
-    id: string;
-    relevanceScore: number;
-    mood: Mood;
-  }[];
+  instructions: string[];
 }
 
-interface BninRecipe {
-  id: string;
-  name: string;
-  imageUrl: string | null;
-  missingIngredients?: number;
-}
-
-interface BninAction {
+export interface BninAction {
   type: 'navigate' | 'suggestion';
   destination?: string;
   params?: Record<string, string>;
   label: string;
 }
 
-interface BninMessage {
+export interface BninMessage {
   message: string;
-  recipes?: BninRecipe[];
+  recipes?: {
+    id: string;
+    name: string;
+    imageUrl?: string | null;
+    missingIngredients?: number;
+  }[];
   actions?: BninAction[];
 }
 
-interface WeatherData {
-  location: string;
-  weather: string;
-  temperature: number;
-}
-
-// Define the context type
-interface BninContextType {
-  // User state
-  user: { id: string; username: string } | null;
-  isLoggedIn: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  
-  // Ingredient selection state
+// Define the shape of our context
+interface BninContextProps {
+  currentView: string;
+  bninMessage: BninMessage | null;
   selectedIngredients: Ingredient[];
+  selectedMood: Mood | null;
+  currentRecipe: Recipe | null;
+  isLoading: boolean;
+  favoriteRecipes: string[];
+  navigate: (view: string, params?: Record<string, string>) => void;
   addIngredient: (ingredient: Ingredient) => void;
   removeIngredient: (ingredientId: string) => void;
-  clearIngredients: () => void;
-  
-  // Mood selection state
-  selectedMood: Mood | null;
-  setSelectedMood: (mood: Mood | null) => void;
-  
-  // Recipe state
-  currentRecipe: Recipe | null;
-  setCurrentRecipe: (recipe: Recipe | null) => void;
-  favoriteRecipes: Recipe[];
-  toggleFavorite: (recipeId: string) => Promise<void>;
+  setSelectedMood: (mood: Mood) => void;
+  getRecipesByIngredients: () => Promise<void>;
+  getRecipesByMood: () => Promise<void>;
+  setCurrentRecipe: (recipe: Recipe) => void;
+  toggleFavorite: (recipeId: string) => void;
   isFavorite: (recipeId: string) => boolean;
-  
-  // Search and recommendations
-  searchRecipes: (query: string) => Promise<Recipe[]>;
-  getRecommendedRecipes: () => Promise<Recipe[]>;
-  getRecipesByIngredients: () => Promise<Recipe[]>;
-  getRecipesByMood: () => Promise<Recipe[]>;
-  
-  // Bnin Assistant
-  bninMessage: BninMessage | null;
-  sendMessageToBnin: (message: string) => Promise<void>;
-  clearBninMessage: () => void;
-  
-  // Context data
-  weatherData: WeatherData | null;
-  getWeatherData: () => Promise<WeatherData | null>;
-  
-  // UI State
-  isLoading: boolean;
-  setIsLoading: (loading: boolean) => void;
-  currentView: string;
-  navigate: (view: string, params?: Record<string, string>) => void;
-  
-  // Original properties (keeping for backward compatibility)
-  isBninActive: boolean;
-  toggleBnin: () => void;
 }
 
-// Create the context with a default value of undefined
-const BninContext = createContext<BninContextType | undefined>(undefined);
+// Create context with default values
+const BninContext = createContext<BninContextProps | undefined>(undefined);
 
-// Create a Provider that wraps your app and provides the state
-export const BninProvider = ({ children }: { children: ReactNode }) => {
-  // Original state
-  const [isBninActive, setIsBninActive] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // User state
-  const [user, setUser] = useState<{ id: string; username: string } | null>(null);
-  
-  // Ingredient selection state
-  const [selectedIngredients, setSelectedIngredients] = useState<Ingredient[]>([]);
-  
-  // Mood selection state
-  const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
-  
-  // Recipe state
-  const [currentRecipe, setCurrentRecipe] = useState<Recipe | null>(null);
-  const [favoriteRecipes, setFavoriteRecipes] = useState<Recipe[]>([]);
-  
-  // Bnin Assistant
+// Provider component that wraps the app
+interface BninProviderProps {
+  children: ReactNode;
+}
+
+export const BninProvider: React.FC<BninProviderProps> = ({ children }) => {
+  // App state
+  const [currentView, setCurrentView] = useState('home');
   const [bninMessage, setBninMessage] = useState<BninMessage | null>({
-    message: "It's cold outside! How about something warm and comforting today?"
-  });
-  
-  // Context data
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-  
-  // UI State
-  const [currentView, setCurrentView] = useState<string>('home');
-
-  // Function to toggle Bnin state
-  const toggleBnin = () => setIsBninActive(prev => !prev);
-
-  // Login function
-  const login = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      // Your authentication logic here
-      // This is a placeholder - replace with your actual authentication code
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      // For demonstration, return true if email includes @ and password is not empty
-      const success = email.includes('@') && password.length > 0;
-      
-      if (success) {
-        setUser({ id: '1', username: email.split('@')[0] });
+    message: "It's cold outside! How about something warm and comforting today?",
+    actions: [
+      {
+        type: 'navigate',
+        destination: 'moodBite',
+        label: 'Find comfort food'
       }
-      
-      return success;
-    } catch (error) {
-      console.error('Login error:', error);
-      return false;
-    } finally {
-      setIsLoading(false);
+    ]
+  });
+  const [selectedIngredients, setSelectedIngredients] = useState<Ingredient[]>([]);
+  const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
+  const [currentRecipe, setCurrentRecipe] = useState<Recipe | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [favoriteRecipes, setFavoriteRecipes] = useState<string[]>([]);
+
+  // Debug current view for troubleshooting
+  useEffect(() => {
+    console.log(`Current view changed to: ${currentView}`);
+  }, [currentView]);
+
+  // Navigation function with enhanced debugging
+  const navigate = (view: string, params?: Record<string, string>) => {
+    console.log(`Navigating to: ${view}`, params ? `with params: ${JSON.stringify(params)}` : '');
+    
+    // Set the current view state
+    setCurrentView(view);
+    
+    // If navigating to recipe detail with a recipeId but no current recipe is set
+    if (view === 'recipeDetail' && params?.recipeId && !currentRecipe) {
+      // Fetch recipe details (this is a placeholder - you would fetch from API)
+      const mockRecipe: Recipe = {
+        id: params.recipeId,
+        name: 'Chicken Stir Fry',
+        description: 'A quick and easy stir fry with chicken and vegetables',
+        imageUrl: '/images/recipes/chicken-stir-fry.jpg',
+        videoUrl: '/videos/recipes/chicken-stir-fry.mp4',
+        prepTime: '15 mins',
+        cookTime: '10 mins',
+        difficulty: 'Easy',
+        servings: 2,
+        ingredients: [
+          { id: '1', name: 'Chicken', quantity: '300', unit: 'g' },
+          { id: '2', name: 'Bell Peppers', quantity: '1', unit: '' },
+          { id: '3', name: 'Onions', quantity: '1', unit: '' },
+          { id: '4', name: 'Soy Sauce', quantity: '2', unit: 'tbsp' },
+          { id: '5', name: 'Garlic', quantity: '2', unit: 'cloves' }
+        ],
+        instructions: [
+          'Cut chicken into bite-sized pieces.',
+          'Slice bell peppers and onions.',
+          'Heat oil in a wok or large frying pan over high heat.',
+          'Add chicken and stir-fry until golden, about 5 minutes.',
+          'Add vegetables and stir-fry for 3 minutes more.',
+          'Add soy sauce and garlic, cook for 1 minute.',
+          'Serve hot over rice.'
+        ]
+      };
+      setCurrentRecipe(mockRecipe);
     }
   };
-  
-  // Logout function
-  const logout = () => {
-    setUser(null);
-    setFavoriteRecipes([]);
-    setCurrentView('home');
-  };
-  
-  // Ingredient selection functions
+
+  // Ingredient management
   const addIngredient = (ingredient: Ingredient) => {
     setSelectedIngredients(prev => [...prev, ingredient]);
   };
-  
+
   const removeIngredient = (ingredientId: string) => {
-    setSelectedIngredients(prev => 
-      prev.filter(ingredient => ingredient.id !== ingredientId)
-    );
+    setSelectedIngredients(prev => prev.filter(item => item.id !== ingredientId));
   };
-  
-  const clearIngredients = () => {
-    setSelectedIngredients([]);
+
+  // Recipe search functions (placeholders - would connect to API)
+  const getRecipesByIngredients = async (): Promise<void> => {
+    setIsLoading(true);
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Mock response
+    setIsLoading(false);
   };
-  
-  // Recipe functions
-  const toggleFavorite = async (recipeId: string): Promise<void> => {
-    // Implementation here
-    // This is a placeholder
-    console.log('Toggle favorite for recipe:', recipeId);
+
+  const getRecipesByMood = async (): Promise<void> => {
+    setIsLoading(true);
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Mock response
+    setIsLoading(false);
   };
-  
+
+  // Favorite recipe management
+  const toggleFavorite = (recipeId: string) => {
+    setFavoriteRecipes(prev => {
+      if (prev.includes(recipeId)) {
+        return prev.filter(id => id !== recipeId);
+      } else {
+        return [...prev, recipeId];
+      }
+    });
+  };
+
   const isFavorite = (recipeId: string): boolean => {
-    return favoriteRecipes.some(recipe => recipe.id === recipeId);
+    return favoriteRecipes.includes(recipeId);
   };
-  
-  // Search and recommendation functions
-  const searchRecipes = async (query: string): Promise<Recipe[]> => {
-    // Implementation here
-    // This is a placeholder
-    return [];
-  };
-  
-  const getRecommendedRecipes = async (): Promise<Recipe[]> => {
-    // Implementation here
-    // This is a placeholder
-    return [];
-  };
-  
-  const getRecipesByIngredients = async (): Promise<Recipe[]> => {
-    // Implementation here
-    // This is a placeholder
-    return [];
-  };
-  
-  const getRecipesByMood = async (): Promise<Recipe[]> => {
-    // Implementation here
-    // This is a placeholder
-    return [];
-  };
-  
-  // Bnin Assistant functions
-  const sendMessageToBnin = async (message: string): Promise<void> => {
-    // Implementation here
-    // This is a placeholder
-    console.log('Message to Bnin:', message);
-  };
-  
-  const clearBninMessage = () => {
-    setBninMessage(null);
-  };
-  
-  // Context data functions
-  const getWeatherData = async (): Promise<WeatherData | null> => {
-    // This is a placeholder
-    const mockWeatherData: WeatherData = {
-      location: 'Current Location',
-      weather: 'sunny',
-      temperature: 22
-    };
-    
-    setWeatherData(mockWeatherData);
-    return mockWeatherData;
-  };
-  
-  // Navigation function
-  const navigate = (view: string, params?: Record<string, string>) => {
-    setCurrentView(view);
-    
-    // If we're navigating to a recipe detail, set the current recipe
-    if (view === 'recipeDetail' && params?.recipeId) {
-      // Fetch recipe by id
-      console.log('Fetch recipe:', params.recipeId);
-    }
+
+  // Context value
+  const contextValue: BninContextProps = {
+    currentView,
+    bninMessage,
+    selectedIngredients,
+    selectedMood,
+    currentRecipe,
+    isLoading,
+    favoriteRecipes,
+    navigate,
+    addIngredient,
+    removeIngredient,
+    setSelectedMood,
+    getRecipesByIngredients,
+    getRecipesByMood,
+    setCurrentRecipe,
+    toggleFavorite,
+    isFavorite
   };
 
   return (
-    <BninContext.Provider value={{
-      // Original properties
-      isBninActive,
-      toggleBnin,
-      
-      // User state
-      user,
-      isLoggedIn: !!user,
-      login,
-      logout,
-      
-      // Ingredient selection state
-      selectedIngredients,
-      addIngredient,
-      removeIngredient,
-      clearIngredients,
-      
-      // Mood selection state
-      selectedMood,
-      setSelectedMood,
-      
-      // Recipe state
-      currentRecipe,
-      setCurrentRecipe,
-      favoriteRecipes,
-      toggleFavorite,
-      isFavorite,
-      
-      // Search and recommendations
-      searchRecipes,
-      getRecommendedRecipes,
-      getRecipesByIngredients,
-      getRecipesByMood,
-      
-      // Bnin Assistant
-      bninMessage,
-      sendMessageToBnin,
-      clearBninMessage,
-      
-      // Context data
-      weatherData,
-      getWeatherData,
-      
-      // UI State
-      isLoading,
-      setIsLoading,
-      currentView,
-      navigate
-    }}>
+    <BninContext.Provider value={contextValue}>
       {children}
     </BninContext.Provider>
   );
 };
 
-// Custom hook to access the context
+// Custom hook for using the context
 export const useBnin = () => {
   const context = useContext(BninContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useBnin must be used within a BninProvider');
   }
   return context;
 };
-
-export default BninContext;
